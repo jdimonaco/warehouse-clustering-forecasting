@@ -1,6 +1,7 @@
 # Warehouse Clustering and Forecasting
 
 This project identifies how different types of products move through a warehouse and predicts their future volume using two forecasting models: **Prophet** and **SARIMAX**.  
+
 The goal is to support warehouse teams with better storage planning, labour allocation, and inventory flow management.
 
 ---
