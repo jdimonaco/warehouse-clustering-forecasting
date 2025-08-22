@@ -1,8 +1,6 @@
 # Warehouse Clustering and Forecasting
 
-This project identifies how different types of products move through a warehouse and predicts their future volume using two forecasting models: **Prophet** and **SARIMAX**.  
-
-The goal is to support warehouse teams with better storage planning, labour allocation, and inventory flow management.
+This project addresses inefficiencies in warehouse operations, focusing on space utilisation, storage alignment, and inbound volume forecasting. It combines clustering and time-series forecasting to improve layout planning, resource allocation, and operational efficiency.
 
 ---
 
@@ -48,6 +46,19 @@ Both models were tuned and tested using sysntetic 2024 data.
   - SARIMAX consistently outperformed Prophet in most clusters, especially for items with more irregular flows.
   - Prophet captured seasonality well but required tuning to match SARIMAX’s precision.
 - **Visual Plots** confirmed where models performed well and where improvements are needed.
+  
+- **Operational Implact**
+  - Picker travel time reduced by 12–15%.
+  - Handling cost efficiency improved by ~10%.
+  - Budget variance reduced by ~8%.
+  - ROI expected within 5 months.
+
+- **Evaluation Metrics**
+  - MAE, RMSE, MAPE
+  - Prophet MAPE:
+    - Cluster 0: 2.16%
+    - Cluster 1: 1.15%
+    - Cluster 2: 1.44%
 
 ---
 
@@ -62,6 +73,30 @@ This project enables warehouses to move from reactive to **data-driven planning*
 - Supporting staffing and resource planning based on expected volume
 
 By combining clustering with accurate forecasting, warehouse operators can **increase efficiency, reduce cost**, and make informed decisions — with minimal tech overhead.
+
+---
+
+## ✴️ Recommendations
+
+- Use Prophet for monthly volume planning.
+- Redesign warehouse layout based on cluster profiles.
+- Integrate forecasts into staffing and equipment scheduling.
+- Continue stakeholder engagement to refine KPIs.
+
+
+## ⚠️ Limitations
+
+- Historical data inconsistencies
+- Limited sample size and category diversity
+- External demand drivers not modelled
+
+  
+## 🚀 Future Work
+
+- Real-time data integration
+- Dynamic modelling
+- Scalable deployment across larger warehouses
+
 
 ---
 
