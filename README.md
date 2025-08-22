@@ -83,6 +83,7 @@ By combining clustering with accurate forecasting, warehouse operators can **inc
 - Integrate forecasts into staffing and equipment scheduling.
 - Continue stakeholder engagement to refine KPIs.
 
+---
 
 ## ⚠️ Limitations
 
@@ -90,13 +91,13 @@ By combining clustering with accurate forecasting, warehouse operators can **inc
 - Limited sample size and category diversity
 - External demand drivers not modelled
 
-  
+---
+ 
 ## 🚀 Future Work
 
 - Real-time data integration
 - Dynamic modelling
 - Scalable deployment across larger warehouses
-
 
 ---
 
