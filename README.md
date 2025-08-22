@@ -37,7 +37,7 @@ Time series forecasting models were trained on monthly inbound volumes for each 
 - **Prophet** (from Meta)
 - **SARIMAX** (from statsmodels)
 
-Both models were tuned and tested using real 2024 data.
+Both models were tuned and tested using sysntetic 2024 data.
 
 ---
 
