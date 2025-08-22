@@ -1,6 +1,12 @@
 # Warehouse Clustering and Forecasting
 
-This project addresses inefficiencies in warehouse operations, focusing on space utilisation, storage alignment, and inbound volume forecasting. It combines clustering and time-series forecasting to improve layout planning, resource allocation, and operational efficiency.
+This project was initiated following structured stakeholder feedback sessions, which were analysed using VADER sentiment analysis . The analysis revealed consistent concerns around:
+
+- Picking delays
+- Storage misalignment
+- Forecasting gaps
+
+These insights shaped the project scope and aligned it with operational priorities in a high-volume logistics environment, combining clustering and time-series forecasting to improve layout planning, resource allocation, and operational efficiency.
 
 ---
 
@@ -76,12 +82,12 @@ By combining clustering with accurate forecasting, warehouse operators can **inc
 
 ---
 
-## ✴️ Recommendations
+## ✅ Recommendations
 
-- Use Prophet for monthly volume planning.
-- Redesign warehouse layout based on cluster profiles.
-- Integrate forecasts into staffing and equipment scheduling.
-- Continue stakeholder engagement to refine KPIs.
+📅 Use Prophet for monthly volume planning.
+🗂️ Redesign warehouse layout based on cluster profiles.
+🧑‍🤝‍🧑 Integrate forecasts into staffing and equipment scheduling.
+📣 Maintain stakeholder engagement to refine KPIs.
 
 ---
 
@@ -98,6 +104,12 @@ By combining clustering with accurate forecasting, warehouse operators can **inc
 - Real-time data integration
 - Dynamic modelling
 - Scalable deployment across larger warehouses
+
+---
+
+🔄 Data Pipeline
+
+- Syntethich for educational purpose
 
 ---
 
