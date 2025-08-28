@@ -1,0 +1,53 @@
+product_id,feedback
+SKU_000,Picking errors are causing significant delays.
+SKU_001,Incorrect items picked frequently.
+SKU_002,Picking speed is too slow.
+SKU_003,Takes too long to find items when picking.
+SKU_004,Picking routes are inefficient.
+SKU_005,Difficulty accessing products on high shelves.
+SKU_006,Picking accuracy needs improvement.
+SKU_007,Too much time spent searching for items.
+SKU_008,Picking location replenishment is slow.
+SKU_009,Manual lifting during picking is a problem.
+SKU_010,Items misplaced in storage.
+SKU_011,Warehouse layout is inefficient for storage.
+SKU_012,Products stored in the wrong zones.
+SKU_013,Storage racks are overcrowded.
+SKU_014,Mislabeling of products in storage is an issue.
+SKU_015,Bulk storage item location is difficult.
+SKU_016,Inefficient use of vertical storage space.
+SKU_017,Storage conditions are inadequate.
+SKU_018,Lack of clear signage in storage areas.
+SKU_019,Damaged packaging in storage.
+SKU_020,Significant delays in receiving inbound shipments.
+SKU_021,Frequent bottlenecks at the packing station.
+SKU_022,Delays in processing returns.
+SKU_023,Inbound shipments not processed efficiently.
+SKU_024,Delays in transferring goods between zones.
+SKU_025,Outbound shipments frequently delayed.
+SKU_026,Delays in updating inventory records.
+SKU_027,Long queues at the loading dock.
+SKU_028,Consistent delays in replenishing picking locations.
+SKU_029,Delays getting products from receiving to storage.
+SKU_030,High rate of damaged items during picking.
+SKU_031,Damaged goods due to overcrowded storage.
+SKU_032,Damaged packaging observed in the storage area.
+SKU_033,Product damage from storage issues.
+SKU_034,Inefficient process for handling oversized items.
+SKU_035,Warehouse management system is slow to update.
+SKU_036,Aisles are often blocked.
+SKU_037,Poor lighting in some storage areas.
+SKU_038,Inconsistent warehouse temperature.
+SKU_039,Lack of standardized procedures for putting away.
+SKU_040,Poor communication between shifts.
+SKU_041,Inefficient process for cycle counting.
+SKU_042,Need more reliable forklifts.
+SKU_043,Too many manual data entry steps.
+SKU_044,Layout of the receiving area is chaotic.
+SKU_045,Hard to find packaging materials.
+SKU_046,Process for handling hazardous materials is unclear.
+SKU_047,Need better tools for cutting open boxes.
+SKU_048,Breakroom is too small.
+SKU_049,Parking is inadequate for employees.
+SKU_050,Uniforms are uncomfortable.
+SKU_051,Insufficient equipment charging.
