@@ -1,15 +1,45 @@
-# Python cache
+# ------------------------
+# Python
+# ------------------------
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
 
 # Virtual environments
 .venv/
 venv/
+env/
+ENV/
 
-# Jupyter checkpoints
+# Jupyter
 .ipynb_checkpoints/
+*.ipynb_convert
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+
+# Logs
+*.log
+
+# IDE/editor settings
+.vscode/
+.idea/
 
 # OS-specific
 .DS_Store
