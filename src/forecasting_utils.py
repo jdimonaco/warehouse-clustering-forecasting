@@ -8,6 +8,10 @@ from typing import Dict, Tuple, Any, Optional
 from prophet import Prophet
 from prophet.diagnostics import cross_validation, performance_metrics
 from IPython.display import display
+import logging
+
+logging.getLogger("cmdstanpy").setLevel(logging.WARNING)  # keep Prophet/Stan progress logs out of the output
+logging.getLogger("prophet").setLevel(logging.WARNING)
 
 
 """# Forecasting with Prophet
@@ -74,7 +78,7 @@ def prepare_prophet_data(ts: pd.Series, cluster_col: str = 'cluster') -> Dict[in
 
         df_p = series.reset_index().rename(columns={'Received date': 'ds', 'monthly_volume': 'y'})
         df_p['ds'] = pd.to_datetime(df_p['ds'])
-        df_p = df_p.set_index('ds').asfreq('ME').ffill().reset_index()
+        df_p = df_p.set_index('ds').asfreq('M').ffill().reset_index()
 
         prophet_data[c] = df_p
         display(df_p.head())
@@ -145,18 +149,17 @@ Why It's Important:
 - Visually assesses how well the baseline Prophet captures patterns and forecasts align with actual test data before tuning.
 - Helps understand main time series drivers per cluster.
 
-
 Output Analysis:
 
-- Cluster 0: Prophet shows a weak trend and some seasonality. It captures the general direction but struggles with irregular spikes.
+- Cluster 0: Prophet fits the training data closely, including the December drops, and continues the pattern into 2024 with a slight under-forecast in late summer.
 
-- Cluster 1: Captures the strong upward trend and seasonal peaks well. It follows the general flow but can miss irregular spikes.
+- Cluster 1: Captures the seasonal cycle well; some 2024 peaks and troughs are smaller or larger than forecast.
 
-- Cluster 2: Identifies the overall trend but smooths over sharper volume changes. It underestimates variability in these items.
+- Cluster 2: Picks up the recovering trend better than SARIMAX, although it still sits slightly below the 2024 actuals.
 
 Conclusion:
 
-- Prophet provides a strong baseline for Cluster 1, which exhibits regular patterns. For Clusters 0 and 2, where data is more variable, further tuning or alternative models may be required to improve forecast accuracy.
+- Prophet's flexible trend handles the change in direction in Cluster 2 better than SARIMAX, while both models capture the regular seasonal patterns in Clusters 0 and 1.
 """
 
 def generate_and_visualise_prophet_forecasts(prophet_models: Dict[int, Prophet],ts_train: Dict[int, pd.Series],
@@ -242,22 +245,23 @@ What It Does:
 
 - Evaluates the accuracy of the baseline Prophet forecast for each cluster using MAE, RMSE, and MAPE on the test period.
 
-Why It’s Important:
+Why It's Important:
 
 - Quantifies how well Prophet predicts unseen data.
 - Lower values indicate better accuracy.
 - Establishes a baseline before tuning and comparison.
 
+Output Analysis:
 
-- Cluster 0: Moderate accuracy (MAPE = 5.0%). Captures trend and seasonality but misses irregular spikes and short-term fluctuations.
+- Cluster 0: MAPE 5.0%, slightly behind SARIMAX (4.87%).
 
-- Cluster 1: Strongest performance (MAPE = 2.4%). Forecasts align closely with actuals, making it reliable for planning.
+- Cluster 1: MAPE 5.0%, slightly behind SARIMAX (4.61%).
 
-- Cluster 2: Limited accuracy (MAPE = 6.8%). Oversmooths variability and misses sharper changes in monthly volumes.
+- Cluster 2: MAPE 4.5%, well ahead of SARIMAX (8.42%).
 
 Conclusion:
 
-- Prophet provides a solid baseline, especially for regular patterns (Cluster 1). In variable clusters (0 and 2), it captures general trends but struggles with short-term fluctuations. Further tuning or complementary models may improve accuracy.
+- Untuned, Prophet is close to SARIMAX for the seasonal clusters and much better for the trending one (Cluster 2).
 """
 
 def evaluate_prophet_forecasts(ts_test: Dict[int, pd.Series], prophet_forecasts: Dict[int, pd.Series]) -> Dict[int, Dict[str, float]]:
@@ -390,7 +394,7 @@ def tune_prophet_parameters(ts_train: Dict[int, pd.Series],param_grid: Dict[str,
 
             try:
                 model.fit(df_p_train)
-                df_cv = cross_validation(model, initial=initial_window, period=period, horizon=horizon)
+                df_cv = cross_validation(model, initial=initial_window, period=period, horizon=horizon, disable_tqdm=True)
 
                 if not df_cv.empty:
                     mape = performance_metrics(df_cv, metrics=['mape'])['mape'].mean()
@@ -413,34 +417,25 @@ def tune_prophet_parameters(ts_train: Dict[int, pd.Series],param_grid: Dict[str,
 
 What it does:
 
-- Trains and forecasts with Prophet using tuned parameters.
+- Trains Prophet with the tuned parameters on the **training period only** (2020–2023) and forecasts the 2024 test year.
 - Visualises forecasts and components against actual test data to assess tuning impact.
-
 
 Why it's important:
 
-- Supports evaluating how tuning changed forecasts and pattern detection compared to baseline.
+- Supports evaluating how tuning changed forecasts compared to the baseline.
+- Fitting on the training period only keeps 2024 unseen, so the evaluation is a genuine test. (An earlier version of this notebook fitted the tuned models on the full 2020–2024 series, including the test year, which made the tuned results look far better than they really were.)
 
 Output Analysis:
 
-- Visual comparison of tuned vs. baseline forecasts against actual test data:
+- Cluster 0: tuning selects a more flexible trend (changepoint_prior_scale 0.5, multiplicative seasonality), which follows the 2024 level more closely.
 
+- Cluster 1: tuning selects changepoint_prior_scale 0.1 with multiplicative seasonality; the forecast is very similar to the baseline.
 
-- Cluster 0:
-  - Baseline captures trend and seasonality with MAPE = 5.0%, but struggles with irregular spikes and short-term fluctuations.
-  - Tuned smoother forecast improves trend alignment. Still misses short-term spikes; responsiveness to variability remains limited.
-
-- Cluster 1:
-  - Baseline strong performance with MAPE = 2.4%. Accurately captures trend and seasonality; forecasts align closely with actuals.
-  - Tuned tracks the strong upward trend and seasonal peaks closely. Minor over/under-forecasting in a few months, but overall alignment remains high.
-
-- Cluster 2:
-  - Baseline limited accuracy with MAPE = 6.8%. Oversmooths variability and misses sharper changes in monthly volumes.
-  - Tuned still oversmooths and under-represents variation. Forecast misses sharp changes, especially during periods of high fluctuation.
+- Cluster 2: tuning selects the default settings (0.05, additive), so the tuned forecast is identical to the baseline.
 
 Conclusion:
 
-- Tuning improves trend alignment but has limited impact on short-term accuracy. Prophet remains best suited for stable patterns (Cluster 1), while variable clusters (0 and 2) may require alternative or hybrid models.
+- Tuning helps where the pattern is regular but the level shifts (Cluster 0), and makes little difference elsewhere.
 """
 
 def generate_tuned_prophet_forecasts(prophet_data: Dict[int, pd.DataFrame],ts_test: Dict[int, pd.Series],best_prophet_params: Dict[int, Optional[Dict[str, Any]]]
@@ -461,7 +456,7 @@ def generate_tuned_prophet_forecasts(prophet_data: Dict[int, pd.DataFrame],ts_te
     Parameters
     ----------
     prophet_data : dict
-        Dictionary of Prophet-formatted training dataframes per cluster.
+        Dictionary of Prophet-formatted dataframes per cluster (only rows before the test period are used for fitting).
     ts_test : dict
         Dictionary of actual test time series per cluster.
     best_prophet_params : dict
@@ -481,7 +476,11 @@ def generate_tuned_prophet_forecasts(prophet_data: Dict[int, pd.DataFrame],ts_te
             print(f"Skipping Cluster {c}: Missing data or parameters.")
             continue
 
+        # Fit on the training period only (data before the first test month), so the
+        # 2024 test year stays unseen and the evaluation is a genuine out-of-sample test.
+        test_start = ts_test[c].index.min()
         df_p = prophet_data[c]
+        df_p = df_p[df_p['ds'] < test_start]
         periods = len(ts_test[c])
 
         model = Prophet(
@@ -516,23 +515,21 @@ What It Does:
 
 - Evaluates the accuracy of the tuned Prophet forecasts using the same metrics as in the previous step, and compares them to the baseline Prophet results.
 
-
-Why It’s Important:
+Why It's Important:
 
 - This comparison helps assess the impact of tuning and identify which version of Prophet performs better for each cluster before benchmarking against SARIMAX.
 
 Output Analysis:
 
-- Cluster 0: Major improvement: MAPE dropped from 5.0% to 2.16%. Tuning dramatically improved accuracy.
+- Cluster 0: MAPE improved from 5.0% (baseline) to 4.05% (tuned), the best result for this cluster.
 
-- Cluster 1: Clear improvement across all metrics. The tuned model tracks movement more effectively.
+- Cluster 1: MAPE 5.04%, essentially unchanged from the baseline (4.96%).
 
-- Cluster 2: Error levels improved significantly: MAPE dropped from 6.8% to 1.44%. Tuning enhances overall accuracy.
-
+- Cluster 2: MAPE 4.53%, identical to the baseline because tuning selected the default settings.
 
 Conclusion:
 
-- Tuning significantly improved Prophet forecast accuracy across all clusters. These results confirm that careful parameter adjustment can substantially enhance model performance, especially in variable demand profiles.
+- Tuning gives a real but modest improvement for Cluster 0 only. The gains are smaller than in the first version of this notebook because the tuned models are now evaluated on genuinely unseen data.
 """
 
 def evaluate_tuned_prophet_forecasts(
@@ -593,54 +590,74 @@ def evaluate_tuned_prophet_forecasts(
 
 What it does:
 
-- Joins tuned Prophet and SARIMAX error metrics (MAE, RMSE, MAPE) side-by-side for each cluster.
+- Compares test-set MAPE and MAE for SARIMAX, baseline Prophet and tuned Prophet for each cluster, and identifies the most accurate model.
 
-Why It’s Important:
+Why It's Important:
 
-- It helps identify which model performs better for each cluster, supporting data-driven model selection based on accuracy and stability.
+- It helps identify which model performs better for each cluster, supporting data-driven model selection based on accuracy.
 
 Output analysis:
 
-- Cluster 0: both models performed similarly, with SARIMAX showing slightly smaller errors.
-
-- Cluster 1: The results were very close, with Prophet having a slightly better average percentage error (MAPE) but SARIMAX having smaller absolute errors (MAE, RMSE).
-
-- Cluster 2: SARIMAX was clearly more accurate, especially in handling the variations in volume.
+| Cluster | SARIMAX | Prophet (baseline) | Prophet (tuned) | Best |
+|---|---|---|---|---|
+| 0 – Fast-Moving Chemicals | 4.87% | 5.00% | **4.05%** | Prophet (tuned) |
+| 1 – Slow-Moving Heavy Electronics | **4.61%** | 4.96% | 5.04% | SARIMAX |
+| 2 – High-Value Pharmaceuticals | 8.42% | **4.53%** | 4.53% | Prophet |
 
 Conclusion:
 
-- SARIMAX consistently outperformed or matched Prophet in forecasting accuracy across clusters, making it the preferred model for predicting inbound volumes, especially for variable items.
+- No single model wins everywhere. Prophet is the most accurate for two of the three clusters, and is clearly better where the trend changed direction (Cluster 2). SARIMAX is slightly more accurate for the regular seasonal pattern of Cluster 1.
+- All models achieve MAPE below 10% on the 2024 test year, comfortably within the 15% target.
 """
 
 def compare_forecast_metrics(
+    prophet_metrics: Dict[int, Dict[str, float]],
     prophet_metrics_tuned: Dict[int, Dict[str, float]],
-    evaluation_results: Dict[int, Dict[str, float]]
+    evaluation_results: Dict[int, Dict[str, float]],
+    cluster_name_mapping: Optional[Dict[int, str]] = None
 ) -> pd.DataFrame:
     """
-    Compares evaluation metrics between tuned Prophet forecasts and SARIMAX models.
+    Compares test-set MAPE for baseline Prophet, tuned Prophet and SARIMAX, and identifies the most accurate model per cluster.
 
     Steps
     ------
-    - Joins tuned Prophet and SARIMAX metrics.
-    - Displays the comparison DataFrame.
-    - Returns the comparison DataFrame.
+    - Builds a table of MAPE (and MAE) for each model and cluster.
+    - Identifies the model with the lowest MAPE for each cluster.
+    - Displays and returns the comparison table.
 
     Parameters
     ----------
+    prophet_metrics : dict
+        Baseline Prophet metrics per cluster.
     prophet_metrics_tuned : dict
-        Dictionary of evaluation metrics for tuned Prophet forecasts per cluster.
+        Tuned Prophet metrics per cluster.
     evaluation_results : dict
-        Dictionary of evaluation metrics for SARIMAX forecasts per cluster.
+        SARIMAX metrics per cluster.
+    cluster_name_mapping : dict, optional
+        Descriptive cluster names.
 
     Returns
     -------
     pd.DataFrame
-        DataFrame comparing MAE, RMSE, and MAPE for both models side by side.
+        Comparison table with the best model per cluster.
     """
-    comp = (pd.DataFrame(prophet_metrics_tuned).T
-          .join(pd.DataFrame(evaluation_results).T,
-                lsuffix='_Prophet_Tuned', rsuffix='_SARIMAX'))
-    print("Comparison of Prophet vs SARIMAX:")
+    rows = []
+    for c in sorted(evaluation_results):
+        row = {
+            'Cluster': cluster_name_mapping.get(c, c) if cluster_name_mapping else c,
+            'MAPE_SARIMAX': evaluation_results[c]['MAPE'],
+            'MAPE_Prophet_Baseline': prophet_metrics.get(c, {}).get('MAPE', np.nan),
+            'MAPE_Prophet_Tuned': prophet_metrics_tuned.get(c, {}).get('MAPE', np.nan),
+            'MAE_SARIMAX': evaluation_results[c]['MAE'],
+            'MAE_Prophet_Baseline': prophet_metrics.get(c, {}).get('MAE', np.nan),
+            'MAE_Prophet_Tuned': prophet_metrics_tuned.get(c, {}).get('MAE', np.nan),
+        }
+        mapes = {'SARIMAX': row['MAPE_SARIMAX'], 'Prophet (baseline)': row['MAPE_Prophet_Baseline'], 'Prophet (tuned)': row['MAPE_Prophet_Tuned']}
+        row['Best_Model'] = min(mapes, key=lambda k: mapes[k] if pd.notna(mapes[k]) else np.inf)
+        rows.append(row)
+
+    comp = pd.DataFrame(rows).set_index('Cluster').round(2)
+    print("Test-set comparison (2024), lower is better:")
     display(comp)
     return comp
 
@@ -648,23 +665,23 @@ def compare_forecast_metrics(
 
 What it does:
 
-- Visualises actual vs. Prophet forecasted monthly volumes per cluster.
+- Visualises actual vs. tuned Prophet forecasted monthly volumes per cluster.
 
-Why It’s Important:
+Why It's Important:
 
 - Helps validate the model's performance by visually comparing forecasts to actual data.
 
 Output Analysis:
 
-- Cluster 0: Trend captured; short-term spikes still missed.
+- Cluster 0: close alignment through the year, including the December drop.
 
-- Cluster 1: Strong alignment with trend and seasonality; minor deviations.
+- Cluster 1: follows the seasonal direction, with gaps at individual peaks and troughs.
 
-- Cluster 2: Forecast closely matches actuals; slight over-prediction and smoothing remain.
+- Cluster 2: follows the shape of the actuals but sits slightly below them.
 
 Conclusion:
 
-- The verification confirms the tuned Prophet model's strengths and limitations across clusters. While Prophet performs well in stable patterns, SARIMAX remains the most consistent and accurate model overall, making it the preferred choice for deployment.
+- Combined with the metrics, this supports a per-cluster model choice: Prophet for Clusters 0 and 2, SARIMAX for Cluster 1.
 """
 
 def plot_actual_vs_tuned_forecasts(
