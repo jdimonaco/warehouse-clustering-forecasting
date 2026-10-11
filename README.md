@@ -1,10 +1,10 @@
 # Warehouse Clustering and Forecasting
 
-This project was initiated following structured stakeholder feedback sessions, which were analysed using VADER sentiment analysis . The analysis revealed consistent concerns around:
+This project began after structured stakeholder feedback sessions, which we analysed using VADER sentiment analysis. The analysis highlighted concerns around:
 
+- Storage misalignment (the joint most common category, with strongly negative sentiment)
 - Picking delays
-- Storage misalignment
-- Forecasting gaps
+- Forecasting gaps (the most negative score, although based on a single comment)
 
 These insights shaped the project scope and aligned it with operational priorities in a high-volume logistics environment, combining clustering and time-series forecasting to improve layout planning, resource allocation, and operational efficiency.
 
@@ -12,7 +12,7 @@ These insights shaped the project scope and aligned it with operational prioriti
 
 ## 📦 Project Overview
 
-Warehouses often store thousands of product types, each behaving differently in terms of volume, weight, value, and picking frequency.  
+Warehouses often store thousands of product types, each with different volume, weight, value, and picking frequency.
 This project answers two key questions:
 1. Can we group products based on how they behave in the warehouse?
 2. Can we forecast how much stock will move in the future for each group?
@@ -24,47 +24,46 @@ The answer to both is yes — using a combination of **clustering** and **time s
 ## 🧪 Methods Used
 
 ### 1. Clustering (Product Grouping)
-Using product features like:
+Using operational behaviour features only, such as:
 - Average volume
 - Weight
 - Unit price
 - Pick frequency
+- Lead time
 - Storage cost per unit
 
-Products were grouped into three clusters:
-- **Cluster 0 – Low-Value Electronics**: Low value, slow-moving, low handling cost
-- **Cluster 1 – High-Volume Essentials**: Fast-moving items with high storage efficiency
-- **Cluster 2 – High-Value Chemicals**: Expensive, heavier items with steady demand
+Product category and dates were deliberately **not** used as inputs, so the clusters reflect how products behave. K-Means found three clusters (best silhouette score at k = 3):
+- **Fast-Moving Chemicals**: light, low-value items with the highest pick frequency and the shortest lead times
+- **Slow-Moving Heavy Electronics**: the heaviest items, with the lowest pick frequency and the longest lead times
+- **High-Value Pharmaceuticals**: the most valuable items, with the highest volumes and moderate pick frequency
+
+Even without being told the category, the clusters match the product categories for 99.2% of products, confirming each category behaves distinctly.
 
 ### 2. Forecasting (Volume Prediction)
 Time series forecasting models were trained on monthly inbound volumes for each cluster using:
-- **Prophet** (from Meta)
+- **Prophet** (from Meta), baseline and tuned
 - **SARIMAX** (from statsmodels)
 
-Both models were tuned and tested using sysntetic 2024 data.
+All models were trained on 2020–2023 and tested on the unseen 2024 data (synthetic).
 
 ---
 
 ## 📊 Key Results
 
 - **Clustering** created meaningful operational categories with actionable storage advice.
-- **Forecasting Accuracy**:
-  - SARIMAX consistently outperformed Prophet in most clusters, especially for items with more irregular flows.
-  - Prophet captured seasonality well but required tuning to match SARIMAX’s precision.
-- **Visual Plots** confirmed where models performed well and where improvements are needed.
-  
-- **Operational Implact**
-  - Picker travel time reduced by 12–15%.
-  - Handling cost efficiency improved by ~10%.
-  - Budget variance reduced by ~8%.
-  - ROI expected within 5 months.
+- **Forecasting Accuracy** (MAPE on 2024, lower is better):
 
-- **Evaluation Metrics**
-  - MAE, RMSE, MAPE
-  - Prophet MAPE:
-    - Cluster 0: 2.16%
-    - Cluster 1: 1.15%
-    - Cluster 2: 1.44%
+| Cluster | SARIMAX | Prophet | Prophet (tuned) | Best model |
+|---|---|---|---|---|
+| Fast-Moving Chemicals | 4.87% | 5.00% | **4.05%** | Prophet (tuned) |
+| Slow-Moving Heavy Electronics | **4.61%** | 4.96% | 5.04% | SARIMAX |
+| High-Value Pharmaceuticals | 8.42% | **4.53%** | 4.53% | Prophet |
+
+  - No single model won everywhere: Prophet was most accurate for two of the three clusters.
+  - Prophet handled the 2024 upturn in Pharmaceuticals far better than SARIMAX (4.5% vs 8.4%).
+  - Every cluster can be forecast within about 5% using its best model, well inside the 15% target.
+- **Visual Plots** confirmed where models performed well and where improvements are needed.
+- **Evaluation Metrics**: MAE, RMSE, MAPE
 
 ---
 
@@ -84,8 +83,8 @@ By combining clustering with accurate forecasting, warehouse operators can **inc
 
 ## ✅ Recommendations
 
-📅 Use Prophet for monthly volume planning.
-🗂️ Redesign warehouse layout based on cluster profiles.
+📅 Use the best model per cluster for monthly volume planning (Prophet for Chemicals and Pharmaceuticals, SARIMAX for Electronics), and review the choice each year.
+🗂️ Redesign warehouse layout based on cluster profiles: fast movers near picking and packing, heavy slow movers in bulk storage, high-value items in secure zones.
 🧑‍🤝‍🧑 Integrate forecasts into staffing and equipment scheduling.
 📣 Maintain stakeholder engagement to refine KPIs.
 
@@ -93,12 +92,12 @@ By combining clustering with accurate forecasting, warehouse operators can **inc
 
 ## ⚠️ Limitations
 
-- Historical data inconsistencies
-- Limited sample size and category diversity
+- Synthetic data, with 60 months of history per cluster (48 for training)
+- Results are based on a single 12-month test period
 - External demand drivers not modelled
 
 ---
- 
+
 ## 🚀 Future Work
 
 - Real-time data integration
@@ -107,9 +106,15 @@ By combining clustering with accurate forecasting, warehouse operators can **inc
 
 ---
 
-🔄 Data Pipeline
+## 🔄 Data
 
-- Syntethich for educational purpose
+- Synthetic data created for educational purposes, stored in the `data/` folder
+
+---
+
+## 📝 Version Note
+
+An earlier version reported tuned Prophet errors of 1–2%. Those models had been trained on data that included the 2024 test year. All models are now trained on 2020–2023 only, and the results above come from the corrected notebook.
 
 ---
 
@@ -117,8 +122,7 @@ By combining clustering with accurate forecasting, warehouse operators can **inc
 
 - Python
 - scikit-learn (clustering)
-- Facebook Prophet
+- Prophet
 - statsmodels (SARIMAX)
 - pandas, matplotlib, seaborn (EDA and visualisation)
-
----
+- NLTK VADER (sentiment analysis)
