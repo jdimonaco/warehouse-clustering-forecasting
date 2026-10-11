@@ -141,19 +141,19 @@ def test_stationarity_by_cluster(ts: pd.Series) -> None:
 
 What it does:
 
-- Breaks each cluster’s monthly volume into trend, seasonal, and residual components using an additive model.
+- Breaks each cluster's monthly volume into trend, seasonal, and residual components using an additive model.
 
-Why it’s important:
+Why it's important:
 
 - Helps visualise long-term patterns and recurring cycles, confirming seasonality and supporting seasonal models like SARIMAX.
 
 Output Analysis:
 
-- Cluster 0: Lower volume, weak trend, noisy residuals. Seasonality is irregular. Still suitable for SARIMAX if differencing stabilises the series.
+- Cluster 0 (Fast-Moving Chemicals): a very strong, repeating annual pattern, with a sharp volume drop every December. The trend dipped in 2022 and has recovered since.
 
-- luster 1: Clear trend and strong, repeatable seasonality. Well suited to SARIMAX.
+- Cluster 1 (Slow-Moving Heavy Electronics): a regular seasonal cycle of roughly ±200 units, with a trend that declined until mid-2022 and has risen since.
 
-- Cluster 2: Visible trend and noticeable seasonality; residuals show some irregularity. Also suitable for SARIMAX.
+- Cluster 2 (High-Value Pharmaceuticals): the trend fell to a low in 2022 and then rose steadily, reaching its highest level in 2024. The seasonal pattern is less regular than in the other clusters.
 """
 
 def decompose_cluster_time_series(ts: pd.Series, cluster_col: str = 'cluster') -> None:
@@ -199,7 +199,7 @@ What it does:
 
 - PACF (Partial Autocorrelation Function): Direct relationship with a specific lag after removing intermediate effects.
 
-Why it’s important:
+Why it's important:
 
 - Helps choose SARIMAX structure:
 
@@ -211,11 +211,11 @@ Why it’s important:
 
 Output Analysis:
 
-- Lag 1: Strong correlation across all clusters (current volume is strongly related to last month’s).
+- Cluster 0 (Fast-Moving Chemicals): a strong spike at lag 12 (about 0.7) and little else, confirming a dominant annual pattern (the December drop).
 
-- Lag 12: Clear seasonal spike in Cluster 1, confirming annual seasonality.
+- Cluster 1 (Slow-Moving Heavy Electronics): significant correlation at lag 1 and lag 12, plus a negative spike at lag 6, consistent with a regular seasonal cycle.
 
-- Clusters 0 and 2: No significant autocorrelation at lag 12; volumes are driven more by recent months than by same month last year.
+- Cluster 2 (High-Value Pharmaceuticals): slowly decaying correlations across the first several lags, typical of a trending series, with no strong lag-12 spike. Volumes are driven more by recent months than by the same month last year.
 """
 
 def plot_acf_pacf_by_cluster(ts: pd.Series, lags: int = 12, cluster_col: str = 'cluster') -> None:
@@ -501,15 +501,17 @@ Why it's important:
 
 - Confirms whether the model has captured all meaningful patterns in the data and whether its assumptions are met.
 
-- Random residuals indicate a well-fitting mode
+- Random residuals indicate a well-fitting model.
 
 Output Analysis:
 
-- Cluster 0: Ljung–Box p-value (lag=12) = 0.996 → residuals appear random. The model adequately captures the patterns for this cluster.
+- Cluster 0: Ljung–Box p-value (lag=12) = 0.817 → residuals appear random.
 
-- Cluster 1: Ljung–Box p-value (lag=12) = 0.642 → residuals appear random. The model fit is appropriate for this cluster.
+- Cluster 1: Ljung–Box p-value (lag=12) = 0.186 → residuals appear random.
 
-- Cluster 2: Ljung–Box p-value (lag=12) = 0.729 → residuals appear random. The model provides a good fit for this cluster.
+- Cluster 2: Ljung–Box p-value (lag=12) = 0.830 → residuals appear random.
+
+- All three models capture the structure of their training data. Residual checks only describe the training fit, so the test-set results below are what show real forecasting accuracy.
 """
 
 def analyse_residuals(final_models: Dict[int, object]) -> None:
@@ -651,7 +653,7 @@ def generate_cluster_forecasts(final_models: Dict[int, Any], ts_test: Dict[int, 
 
 What it does:
 
-- Plots training, actual test, and forecast series together.
+- Plots actual vs predicted volumes for the 2024 test period.
 
 Why it's important:
 
@@ -659,15 +661,15 @@ Why it's important:
 
 Output Analysis:
 
-- Cluster 0: The forecast appears as a relatively straight line on the test data, indicating it did not capture the fluctuations or trend in the actual volumes for this period.
+- Cluster 0 (Fast-Moving Chemicals): the forecast follows the actual pattern closely, including the sharp December drop, with a modest under-forecast in late summer.
 
-- Cluster 1: Forecasts generally follow the main trend and seasonal shape, but there are visible differences from actuals in specific months, indicating some missed short-term variability.
+- Cluster 1 (Slow-Moving Heavy Electronics): the forecast follows the seasonal ups and downs but misses some month-to-month peaks, notably over-forecasting September.
 
-- Cluster 2: Forecasts follow the general trend but show larger gaps; some monthly variation is under/over-estimated.
+- Cluster 2 (High-Value Pharmaceuticals): the forecast sits consistently below the actuals throughout 2024. The model did not anticipate the strong upward trend in this cluster's volumes.
 
 Conclusion:
 
-- The plots indicate that while SARIMAX captures broader patterns for some clusters, it struggles with the variability and specific trend for Cluster 0 on the test data. Evaluate model performance on test data will validate these visual observations with the quantitative metrics.
+- SARIMAX works well where the pattern repeats each year (Cluster 0) but struggles when the trend changes direction (Cluster 2).
 """
 
 def plot_actual_vs_predicted(actuals: Dict[int, pd.Series],predictions: Dict[int, pd.Series]) -> None:
@@ -716,25 +718,25 @@ def plot_actual_vs_predicted(actuals: Dict[int, pd.Series],predictions: Dict[int
 
 What it does:
 
-- Calculates MAE, RMSE, and MAPE for each cluster’s forecasts.
+- Calculates MAE, RMSE, and MAPE for each cluster's forecasts.
 
 Why it's important:
 
 - These numbers show how close the forecasts were to the actual values:
 MAE and RMSE measure the size of the errors.
-- MAPE shows the error as a percentage — useful for comparing across clusters.
+- MAPE shows the error as a percentage, which is useful for comparing across clusters.
 
 Output Analysis:
 
-- Cluster 0: While the forecast visually appeared as a straight line, missing fluctuations in actual volumes, the MAE was 9.75% of the test mean, indicating moderate accuracy over the test period.
+- Cluster 0 (Fast-Moving Chemicals): MAPE 4.87%.
 
-- Cluster 1: The forecast captured the overall trend and seasonal shape well, with some short-term deviations. The MAE was 4.48% of the test mean, reflecting strong performance and a good fit for this cluster's patterns.
+- Cluster 1 (Slow-Moving Heavy Electronics): MAPE 4.61%.
 
-- Cluster 2: The forecast followed the general trend but showed noticeable gaps in certain months. The MAE was 4.49% of the test mean, demonstrating reliable forecasting for this cluster.
+- Cluster 2 (High-Value Pharmaceuticals): MAPE 8.42%, the weakest result, consistent with the steady under-forecast seen in the plot.
 
 Conclusion:
 
-- All clusters achieved MAPE below 15%, confirming the project hypothesis. SARIMAX performed reliably across cluster types. Prophet will be evaluated next to identify the optimal forecasting model.
+- All clusters achieved MAPE below 15%, confirming the project hypothesis. SARIMAX is reliable for Clusters 0 and 1, but less so for Cluster 2, where volumes trended upwards. Prophet is evaluated next for comparison.
 """
 
 def evaluate_forecast_accuracy(ts_test: Dict[int, pd.Series],cluster_forecasts: Dict[int, pd.Series]) -> Dict[int, Dict[str, float]]:
@@ -809,21 +811,21 @@ What it does:
 
 - Plots the training, actual test, and forecast series together for each cluster.
 
-Why it’s important:
+Why it's important:
 
-- Gives a visual check of how well the model follows the real pattern, seasonality, and trend—by seeing how close the forecast line is to the actual line.
+- Gives a visual check of how well the model follows the real pattern, seasonality, and trend by seeing how close the forecast line is to the actual line.
 
 Output Analysis:
 
-- Cluster 0: The forecast starts to drift away from the actual data around mid-2024, missing several ups and downs. While earlier results showed moderate accuracy (MAE 9.75%), the recent forecast looks less reliable.
+- Cluster 0: the forecast continues the strong annual pattern from the training years, including the December drop, and stays close to the actuals.
 
-- Cluster 1: The forecast stays closer to the actual values than the other clusters, with smaller differences. This matches the strong MAE (4.48%) and confirms it has the best overall fit.
+- Cluster 1: the forecast reproduces the seasonal shape of previous years; differences are in the size of individual monthly peaks.
 
-- Cluster 2: The forecast shows bigger and more frequent gaps from the actual data, especially after mid-2024. This supports the earlier finding that Cluster 2 had the weakest fit, even though its MAE (4.49%) was relatively low.
+- Cluster 2: the training data shows volumes falling until 2022 and then recovering. The forecast extends the recovery too cautiously, so it stays well below the 2024 actuals.
 
 Conclusion:
 
-- Forecast accuracy varies across clusters. Cluster 1 fits the actual data best. Cluster 0 captures the overall trend but misses some month-to-month changes. Cluster 2 shows the biggest differences from actuals. Further improvements should focus on Cluster 2, then Cluster 0, to boost overall performance.
+- Forecast accuracy varies across clusters. Improvements should focus on Cluster 2, where the trend shift is the main source of error.
 """
 
 def visualise_forecasts_on_test_data(ts_train: Dict[int, pd.Series],ts_test: Dict[int, pd.Series], cluster_forecasts: Dict[int, pd.Series]) -> None:

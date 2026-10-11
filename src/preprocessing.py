@@ -6,7 +6,6 @@ from typing import Tuple
 from IPython.display import display
 
 
-df = pd.read_csv("priced_inventory_data (3).csv")
 
 def inspect_inventory_data(file_path: str) -> pd.DataFrame:
     """
@@ -30,7 +29,7 @@ def inspect_inventory_data(file_path: str) -> pd.DataFrame:
 
     Example Usage
     -------------
-    df = inspect_inventory_data("priced_inventory_data (3).csv")
+    df = inspect_inventory_data("data/priced_inventory_data (3).csv")
     """
     df = pd.read_csv(file_path)
 
@@ -70,7 +69,7 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
 
     Example Usage
     -------------
-    df = pd.read_csv("priced_inventory_data (3).csv")
+    df = pd.read_csv("data/priced_inventory_data (3).csv")
     df = feature_engineering(df)
     """
 
@@ -82,9 +81,9 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     for column in df.columns:
         if df[column].isnull().any():
             if df[column].dtype in ['int64', 'float64']:
-                df[column].fillna(df[column].mean(), inplace=True)
+                df[column] = df[column].fillna(df[column].mean())
             else:
-                df[column].fillna(df[column].mode()[0], inplace=True)
+                df[column] = df[column].fillna(df[column].mode()[0])
 
     print("\nMissing values after imputation:")
     print(df.isnull().sum())

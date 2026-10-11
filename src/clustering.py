@@ -14,7 +14,7 @@ from IPython.display import display
 
 
 
-def scale_numeric_features(df: pd.DataFrame) -> np.ndarray:
+def scale_numeric_features(df: pd.DataFrame, exclude: Optional[list] = None) -> np.ndarray:
     """
     Scales numeric features using StandardScaler for clustering and analysis.
 
@@ -29,13 +29,18 @@ def scale_numeric_features(df: pd.DataFrame) -> np.ndarray:
     ----------
     df : pd.DataFrame
         The input DataFrame with numeric features.
+    exclude : list, optional
+        Numeric columns to leave out of clustering (e.g. date parts and category flags),
+        so that products are grouped on how they behave, not on labels or dates.
 
     Returns
     -------
     np.ndarray
         Scaled numeric feature matrix.
     """
-    num_cols = df.select_dtypes(include=[np.number]).columns
+    exclude = exclude or []
+    num_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c not in exclude]
+    print("Features used for clustering:", num_cols)
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(df[num_cols])
 
@@ -56,6 +61,12 @@ Tests different numbers of clusters (*k*) to see which one works best by using:
 
 Why it's important:
 - Helps pick the best number of clusters without making them too many (overfitting) or too few (underfitting).
+
+
+Output Analysis:
+
+- Inertia drops sharply up to k = 3 and flattens afterwards (the "elbow").
+- The silhouette score peaks at k = 3 (about 0.45), so three clusters give the clearest separation.
 """
 
 def find_optimal_k(X_scaled: np.ndarray, k_range: range = range(2, 11)) -> Tuple[int, list, list]:
@@ -207,29 +218,29 @@ Why it's important:
 
 - These intuitive names help stakeholders quickly understand product groupings for better warehouse planning.
 
+How names are assigned:
+
+- K-Means numbers its clusters arbitrarily, so names are assigned from each cluster's own profile (see `name_clusters_from_profile`), never from a fixed list. This keeps names correct if the cluster numbering changes.
+
 Output Analysis:
 
-- Cluster 0 (Low-Value Chemicals): High pick frequency, low weight and price. Storage-efficient with high volume-to-weight ratio. Ideal for fast-moving inventory.
+- Even though product category was **not** used as a clustering input, the three behavioural clusters match the three categories for 99.2% of products. Each category behaves distinctly in this warehouse, which validates category-level storage rules.
 
-- Cluster 1 (High-Value Pharmaceuticals): Moderate pick frequency, high volume and price. High seasonality and storage efficiency. Premium items needing secure, prioritised storage.
+- Cluster 0 (Fast-Moving Chemicals): the highest pick frequency (9.0), the lightest items (12 kg), the lowest price (£88) and the shortest lead time (18 days). Ideal for high-access zones near picking and packing.
 
-- Cluster 2 (Mid-Value Electronics): Low pick frequency, high weight, moderate price. Strong seasonality and low storage efficiency. Requires flexible storage planning.
+- Cluster 1 (Slow-Moving Heavy Electronics): the lowest pick frequency (2.7), the heaviest items (84 kg), the longest lead time (28 days), strong seasonality and the lowest storage efficiency. Suited to bulk or less accessible storage with heavy-load racking.
 
-
-
-
-
+- Cluster 2 (High-Value Pharmaceuticals): the highest price (£234) and the highest volumes (198 units on average), with moderate pick frequency (6.4) and the best storage efficiency. Needs secure, moderately accessible storage with capacity for volume.
 """
 
-def rename_clusters(    cluster_means: pd.DataFrame,cluster_name_mapping: dict | None = None) -> tuple[pd.DataFrame, dict]:
+def rename_clusters(cluster_means: pd.DataFrame, cluster_name_mapping: dict) -> tuple[pd.DataFrame, dict]:
     """
     Renames the index of the cluster means DataFrame using a mapping of cluster labels to descriptive names.
 
     Steps
     ------
-    - Defines a default cluster name mapping if none is provided.
-    - Checks if the cluster means index contains labels not present in the mapping and raises an error if so.
-    - Renames the index of the cluster means DataFrame using the provided or default mapping.
+    - Checks that every cluster label has a name in the mapping and raises an error if not.
+    - Renames the index of the cluster means DataFrame using the mapping.
     - Returns the DataFrame with the renamed index and the mapping used.
 
     Parameters
@@ -237,22 +248,13 @@ def rename_clusters(    cluster_means: pd.DataFrame,cluster_name_mapping: dict |
     cluster_means : pd.DataFrame
         DataFrame with cluster labels as index and mean values of features.
     cluster_name_mapping : dict
-        Dictionary mapping cluster labels (int) to descriptive names (str). If None, a default mapping is used.
+        Dictionary mapping cluster labels (int) to descriptive names (str).
 
     Returns
     -------
     tuple[pd.DataFrame, dict]
-        A tuple containing:
-        - pd.DataFrame: DataFrame with renamed index using descriptive cluster names.
-        - dict: The cluster name mapping used.
+        The renamed DataFrame and the mapping used.
     """
-    if cluster_name_mapping is None:
-        cluster_name_mapping = {
-            0: "Low-Value Chemicals",
-            1: "High-Value Pharmaceuticals",
-            2: "Mid-Value Electronics",
-        }
-
     missing = set(cluster_means.index) - set(cluster_name_mapping.keys())
     if missing:
         raise ValueError(f"Cluster name mapping missing entries for: {missing}")
@@ -262,6 +264,45 @@ def rename_clusters(    cluster_means: pd.DataFrame,cluster_name_mapping: dict |
     display(renamed)
 
     return renamed, cluster_name_mapping
+
+
+def name_clusters_from_profile(df_clustered: pd.DataFrame, categories: pd.Series, cluster_col: str = 'cluster') -> dict:
+    """
+    Names each cluster from its own profile, so names always match the data (cluster numbers from K-Means are arbitrary).
+
+    Steps
+    ------
+    - Cross-tabulates clusters against product category to show how closely the behavioural clusters match categories.
+    - Identifies the dominant category in each cluster.
+    - Assigns a descriptive name based on that category's operational profile.
+
+    Parameters
+    ----------
+    df_clustered : pd.DataFrame
+        DataFrame with cluster labels.
+    categories : pd.Series
+        Product category for each row (same index as df_clustered).
+    cluster_col : str, optional
+        Name of the cluster label column.
+
+    Returns
+    -------
+    dict
+        Mapping of cluster label to descriptive name.
+    """
+    profile_names = {
+        'Chemicals': 'Fast-Moving Chemicals',
+        'Electronics': 'Slow-Moving Heavy Electronics',
+        'Pharmaceuticals': 'High-Value Pharmaceuticals',
+    }
+    crosstab = pd.crosstab(df_clustered[cluster_col], categories.loc[df_clustered.index])
+    print("Clusters vs product category (category was NOT used for clustering):")
+    display(crosstab)
+    match_rate = crosstab.max(axis=1).sum() / crosstab.values.sum()
+    print(f"Share of products whose cluster matches their category's dominant cluster: {match_rate:.1%}")
+
+    dominant = crosstab.idxmax(axis=1)
+    return {c: profile_names.get(cat, f'Cluster {c}') for c, cat in dominant.items()}
 
 """## Block 11: PCA Visualisation of Clusters
 
@@ -378,12 +419,12 @@ def summarise_clusters(
         print(f"  Average Lead Time: {data_c['lead_time_days'].mean():.1f} days")
 
         if c in cluster_name_mapping:
-            if cluster_name_mapping[c] == "Low-Value Chemicals":
-                print("  Recommendation: Store in high-access zones near picking/packing. Focus on efficient flow due to high pick frequency and low handling cost.")
-            elif cluster_name_mapping[c] == "Mid-Value Electronics":
-                 print("  Recommendation: Store in bulk or less accessible areas due to lower pick frequency and higher weight. Manage space efficiently for these items with longer lead times.")
+            if cluster_name_mapping[c] == "Fast-Moving Chemicals":
+                print("  Recommendation: Store in high-access zones near picking/packing. These light items have the highest pick frequency and shortest lead times, so reducing travel time matters most.")
+            elif cluster_name_mapping[c] == "Slow-Moving Heavy Electronics":
+                print("  Recommendation: Store in bulk or less accessible areas with heavy-load racking. These are the heaviest items with the lowest pick frequency and longest lead times.")
             elif cluster_name_mapping[c] == "High-Value Pharmaceuticals":
-                 print("  Recommendation: Store in moderately accessible, secure zones that can handle higher volumes. Balance security for high-price items with reasonable access for moderate pick frequency.")
+                print("  Recommendation: Store in secure, moderately accessible zones with capacity for high volumes. These are the most valuable items, with the highest volumes and moderate pick frequency.")
             else:
-                 print("  Recommendation: No specific recommendation available for this cluster.")
+                print("  Recommendation: No specific recommendation available for this cluster.")
 

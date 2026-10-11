@@ -23,6 +23,7 @@ from clustering import (
     assign_clusters,
     calculate_cluster_means,
     rename_clusters,
+    name_clusters_from_profile,
     plot_clusters_pca,
     summarise_clusters
 )
@@ -59,7 +60,7 @@ def main_pipeline() -> dict:
     # --- Feedback Sentiment Analysis ---
 
     # Step 0.1: Load feedback
-    feedback_df = read_feedback_data('warehouse_feedback.csv')
+    feedback_df = read_feedback_data('data/warehouse_feedback.csv')
     display(feedback_df.head(5))
 
     # Step 0.2: Perform sentiment analysis
@@ -90,7 +91,7 @@ def main_pipeline() -> dict:
      # --- Clustering & Forecasting ---
 
     # Step 1: Load and Inspect Inventory Data
-    inventory_file_path = "priced_inventory_data (3).csv"
+    inventory_file_path = "data/priced_inventory_data (3).csv"
     df = inspect_inventory_data(inventory_file_path)
     print("\nSummary Statistics:")
     print(df.describe())
@@ -113,7 +114,11 @@ def main_pipeline() -> dict:
     df_win = winsorise_outliers(df_bool)
 
     # Step 7: Scale Numeric Features
-    X_scaled = scale_numeric_features(df_win)
+    # Cluster on operational behaviour only: leave out date parts and category-derived columns,
+    # so the clusters are not simply a copy of the category label.
+    category_cols = [c for c in df_win.columns if c.startswith('category_')] + ['category_popularity']
+    exclude_from_clustering = ['Month', 'Year'] + category_cols
+    X_scaled = scale_numeric_features(df_win, exclude=exclude_from_clustering)
 
     # Step 8: Find Optimal k
     optimal_k, _, _ = find_optimal_k(X_scaled)
@@ -125,11 +130,8 @@ def main_pipeline() -> dict:
 
     # Step 10: Cluster Profiling & Naming
     cluster_means = calculate_cluster_means(df_clustered)
-    cluster_name_mapping = {
-        0: "Low-Value Chemicals",
-        1: "High-Value Pharmaceuticals",
-        2: "Mid-Value Electronics"
-    }
+    cluster_name_mapping = name_clusters_from_profile(df_clustered, df_fe['category'])
+    print("Cluster names:", cluster_name_mapping)
     cluster_means_named, used_mapping = rename_clusters(cluster_means, cluster_name_mapping)
 
     # Step 11: PCA Visualisation
@@ -211,7 +213,7 @@ def main_pipeline() -> dict:
     plot_actual_vs_tuned_forecasts(ts_test, prophet_forecasts_tuned)
 
     # Step 33: Compare Forecast Metrics
-    comparison_df = compare_forecast_metrics(prophet_metrics_tuned, sarimax_evaluation_results)
+    comparison_df = compare_forecast_metrics(prophet_metrics, prophet_metrics_tuned, sarimax_evaluation_results, used_mapping)
 
     return {
         "feedback_df": feedback_df,
